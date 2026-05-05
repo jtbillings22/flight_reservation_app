@@ -114,7 +114,7 @@ VALUES (
     '555-444-4444',
     2001,
     'bookedcustomer',
-    'password123'
+    'test'
 );
 
 -- Create reservation for the booked customer
