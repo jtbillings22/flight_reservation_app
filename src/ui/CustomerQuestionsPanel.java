@@ -1,11 +1,10 @@
 package ui;
 
-import models.Employee;
-
-import javax.swing.*;
 import java.awt.BorderLayout;
 import java.awt.Font;
 import java.util.List;
+import javax.swing.*;
+import models.Employee;
 
 public class CustomerQuestionsPanel extends JPanel {
     private final MainFrame frame;
@@ -35,14 +34,17 @@ public class CustomerQuestionsPanel extends JPanel {
         });
 
         JButton resolveButton = new JButton("Resolve Selected");
+        JButton respondButton = new JButton("Respond to Selected");
         JButton refreshButton = new JButton("Refresh");
         JButton backButton = new JButton("Back");
 
         resolveButton.addActionListener(e -> resolveSelectedQuestion());
+        respondButton.addActionListener(e -> respondToSelectedQuestion());
         refreshButton.addActionListener(e -> loadQuestions());
         backButton.addActionListener(e -> frame.showEmployeeDashboard(employee));
 
         JPanel buttonPanel = new JPanel();
+        buttonPanel.add(respondButton);
         buttonPanel.add(resolveButton);
         buttonPanel.add(refreshButton);
         buttonPanel.add(backButton);
@@ -87,6 +89,10 @@ public class CustomerQuestionsPanel extends JPanel {
                         + "Status: " + question.getStatus() + "\n"
                         + "Submitted: " + question.getSubmittedAt() + "\n\n"
                         + "Question:\n" + question.getQuestion()
+                        + (question.hasResponse()
+                        ? "\n\nResponse (" + question.getRespondedAt() + ") from " + question.getResponderName() + ":\n"
+                        + question.getResponse()
+                        : "")
         );
     }
 
@@ -100,5 +106,43 @@ public class CustomerQuestionsPanel extends JPanel {
         CustomerChatPanel.resolveQuestion(selectedQuestion);
         loadQuestions();
         JOptionPane.showMessageDialog(this, "Question marked as resolved.");
+    }
+
+    private void respondToSelectedQuestion() {
+        CustomerChatPanel.CustomerQuestion selectedQuestion = questionList.getSelectedValue();
+        if (selectedQuestion == null) {
+            JOptionPane.showMessageDialog(this, "Select a question to respond to.");
+            return;
+        }
+
+        JTextArea responseArea = new JTextArea(8, 40);
+        responseArea.setLineWrap(true);
+        responseArea.setWrapStyleWord(true);
+        if (selectedQuestion.hasResponse()) {
+            responseArea.setText(selectedQuestion.getResponse());
+        }
+
+        int option = JOptionPane.showConfirmDialog(
+                this,
+                new JScrollPane(responseArea),
+                "Respond to Customer",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (option != JOptionPane.OK_OPTION) {
+            return;
+        }
+
+        String responseText = responseArea.getText().trim();
+        if (responseText.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Response cannot be empty.");
+            return;
+        }
+
+        String responderName = employee.getFirstName() + " " + employee.getLastName();
+        CustomerChatPanel.respondToQuestion(selectedQuestion, responderName, responseText);
+        loadQuestions();
+        JOptionPane.showMessageDialog(this, "Response sent. Customer will be notified.");
     }
 }

@@ -240,6 +240,8 @@ JOIN (
 SET r.total_price = ROUND(r.booking_fee + t.fare_total, 2)
 WHERE r.reservation_id BETWEEN 2001 AND 2020;
 
+SET sql_safe_updates = 0;
+
 UPDATE Flight_Class_Inventory fci
 LEFT JOIN (
     SELECT instance_id, ticket_class, COUNT(*) AS booked_count
@@ -250,3 +252,5 @@ LEFT JOIN (
     ON bt.instance_id = fci.instance_id
     AND bt.ticket_class = fci.ticket_class
 SET fci.available_seats = GREATEST(fci.total_seats - COALESCE(bt.booked_count, 0), 0);
+
+SET sql_safe_updates = 1;

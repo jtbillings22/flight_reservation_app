@@ -66,6 +66,7 @@ public class CustomerChatPanel extends JPanel {
         add(contentPanel, BorderLayout.CENTER);
         add(bottomPanel, BorderLayout.SOUTH);
 
+        notifyUnreadResponses(customer);
         refreshHistory(customer);
     }
 
@@ -93,6 +94,57 @@ public class CustomerChatPanel extends JPanel {
         }
     }
 
+    public static synchronized void respondToQuestion(CustomerQuestion question, String responderName, String responseText) {
+        if (question != null && responseText != null && !responseText.trim().isEmpty()) {
+            question.respond(responderName, responseText.trim());
+        }
+    }
+
+    public static synchronized List<CustomerQuestion> getUnreadRespondedQuestionsForCustomer(int accountId) {
+        List<CustomerQuestion> results = new ArrayList<>();
+        for (CustomerQuestion question : QUESTIONS) {
+            if (question.getCustomer().getAccount_id() == accountId
+                    && question.hasResponse()
+                    && !question.isCustomerNotified()) {
+                results.add(question);
+            }
+        }
+        return results;
+    }
+
+    public static synchronized void markResponsesNotified(int accountId) {
+        for (CustomerQuestion question : QUESTIONS) {
+            if (question.getCustomer().getAccount_id() == accountId && question.hasResponse()) {
+                question.markCustomerNotified();
+            }
+        }
+    }
+
+    private void notifyUnreadResponses(Customer customer) {
+        List<CustomerQuestion> unreadResponses = getUnreadRespondedQuestionsForCustomer(customer.getAccount_id());
+        if (unreadResponses.isEmpty()) {
+            return;
+        }
+
+        StringBuilder notification = new StringBuilder("You have new responses from customer service:\n\n");
+        for (CustomerQuestion question : unreadResponses) {
+            notification.append("Question (").append(question.getSubmittedAt()).append("):\n")
+                    .append(question.getQuestion()).append("\n\n")
+                    .append("Response (").append(question.getRespondedAt()).append(") from ")
+                    .append(question.getResponderName()).append(":\n")
+                    .append(question.getResponse()).append("\n\n");
+        }
+
+        JOptionPane.showMessageDialog(
+                this,
+                notification.toString(),
+                "New Customer Service Responses",
+                JOptionPane.INFORMATION_MESSAGE
+        );
+
+        markResponsesNotified(customer.getAccount_id());
+    }
+
     private void refreshHistory(Customer customer) {
         StringBuilder sb = new StringBuilder();
         List<CustomerQuestion> customerQuestions = getQuestionsForCustomer(customer.getAccount_id());
@@ -104,7 +156,13 @@ public class CustomerChatPanel extends JPanel {
         for (CustomerQuestion q : customerQuestions) {
             sb.append("[").append(q.getStatus()).append("] ")
                     .append(q.getSubmittedAt()).append("\n")
-                    .append(q.getQuestion()).append("\n\n");
+                    .append(q.getQuestion()).append("\n");
+            if (q.hasResponse()) {
+                sb.append("Response (").append(q.getRespondedAt()).append(") from ")
+                        .append(q.getResponderName()).append(":\n")
+                        .append(q.getResponse()).append("\n");
+            }
+            sb.append("\n");
         }
         historyArea.setText(sb.toString());
         historyArea.setCaretPosition(0);
@@ -115,12 +173,20 @@ public class CustomerChatPanel extends JPanel {
         private final String question;
         private final String submittedAt;
         private boolean resolved;
+        private String response;
+        private String respondedAt;
+        private String responderName;
+        private boolean customerNotified;
 
         public CustomerQuestion(Customer customer, String question) {
             this.customer = customer;
             this.question = question;
             this.submittedAt = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
             this.resolved = false;
+            this.response = null;
+            this.respondedAt = null;
+            this.responderName = null;
+            this.customerNotified = false;
         }
 
         public Customer getCustomer() {
@@ -136,11 +202,46 @@ public class CustomerChatPanel extends JPanel {
         }
 
         public String getStatus() {
+            if (hasResponse()) {
+                return "Responded";
+            }
             return resolved ? "Resolved" : "Unresolved";
         }
 
         public void markResolved() {
             resolved = true;
+        }
+
+        public void respond(String responderName, String responseText) {
+            this.response = responseText;
+            this.respondedAt = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+            this.responderName = responderName;
+            this.resolved = true;
+            this.customerNotified = false;
+        }
+
+        public boolean hasResponse() {
+            return response != null && !response.isEmpty();
+        }
+
+        public String getResponse() {
+            return response;
+        }
+
+        public String getRespondedAt() {
+            return respondedAt;
+        }
+
+        public String getResponderName() {
+            return responderName;
+        }
+
+        public boolean isCustomerNotified() {
+            return customerNotified;
+        }
+
+        public void markCustomerNotified() {
+            customerNotified = true;
         }
 
         @Override
